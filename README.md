@@ -39,9 +39,9 @@ export FLASK_ENV=development (Do this step everytime when you start venv)
 ```
 flask run
 ```
-## Contributors
+## Guidelines for contribution
 
-* If you want to contriute:
+* If you want to contribute:
 
   * Fork this repo
   * Clone the forked repo
