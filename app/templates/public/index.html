@@ -14,20 +14,32 @@
 </div>
 
 
-
+<!-- 
 <div class="container">
     <div class="row">
         <div class="col">
-            {% for k,v in tables.items() %}
-                <h2>{{ k }}</h2>
+            
+            <form action="/get-query" method="post">
+                <h2>Table</h2>
+                
+            
+                {% for k,v in tables.items() %}
                 <ul>
                     {% for name in v %}
-                        <li> {{ name }} </li>
+                        <li> 
+                            <div class="form-group">
+                                <input type="checkbox" name="table"  value="{{ name }}">
+                                <label for="">{{ name }}</label><br>
+                            </div>
+                     </li>
                     {% endfor %}
                 </ul>
             {% endfor %}
+            
+            </form>
+
         </div>
     </div>
-</div>
+</div> -->
 
 {% endblock %}
