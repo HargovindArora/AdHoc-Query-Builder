@@ -162,7 +162,7 @@ def generate_sql():
 
     except TypeError:
         res = make_response(
-            jsonify({"message": "Improper Payloads"}), 400)
+            jsonify({"message": "Couldn't find sufficient values to construct query!"}), 400)
 
     return res
 
@@ -188,6 +188,6 @@ def get_result():
 
     except (TypeError, KeyError, NameError) as e:
         res = make_response(
-            jsonify({"message": "Improper Payloads"}), 400)
+            jsonify({"message": "Couldn't execute SQL!"}), 400)
 
     return res
