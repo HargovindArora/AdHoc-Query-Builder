@@ -85,12 +85,47 @@ def column():
     return res
 
 
-@app.route("/where", methods=["POST"])
+@app.route("/conditions", methods=["POST"])
 def where_clause():
 
-    application = ""
-    condition_s = ""
-    condition_s += " {column} + {condition_drop_down} + {value}"
+    req = request.get_json()
+
+    try:
+        where = req["where"]
+        conditions = where["conditions"]
+        acceptance = where["acceptance"]
+
+        where = ""
+
+        if acceptance == "not all" or acceptance == "none":
+            where += "NOT ("
+
+        else:
+            where += "("
+
+        if acceptance == "all" or acceptance == "not all":
+            for condition in conditions:
+                where += condition
+                where += " AND "
+        elif acceptance == "any" or acceptance == "none":
+            for condition in conditions:
+                where += condition
+                where += " OR "
+
+        where = where.split()
+        where.pop()
+        where = " ".join(where)
+        where += ")"
+
+        query["where"] = where
+
+        res = make_response(
+            jsonify({"message": "Conditions Successfully selected"}), 200)
+
+    except (TypeError, KeyError, NameError) as e:
+        res = make_response(jsonify({"message": "Check payloads"}), 400)
+
+    return res
 
 
 @app.route("/generate_sql", methods=["GET"])
@@ -101,21 +136,26 @@ def generate_sql():
     where = query.get('where')
     group_by = query.get('group_by')
     aggregate = query.get('aggregate')
+    having = query.get('having')
 
     try:
         columns = ", ".join(column)
         tables = ", ".join(table)
 
-        SQL = f"SELECT {columns} FROM {tables};"
+        SQL = f"SELECT {columns} FROM {tables}"
 
         if where:
-            SQL += ""
+            SQL += " WHERE "
+            SQL += query["where"]
+
+        SQL += ";"
+        query["SQL"] = SQL
 
         res = make_response(jsonify({"SQL": SQL}), 200)
 
     except TypeError:
         res = make_response(
-            jsonify({"message": "Columns/Tables not found"}), 400)
+            jsonify({"message": "Improper Payloads"}), 400)
 
     return res
 
@@ -123,20 +163,13 @@ def generate_sql():
 @app.route("/result", methods=["GET"])
 def get_result():
 
-    table = query.get('table')
-    column = query.get('column')
-    where = query.get('where')
-    group_by = query.get('group_by')
-    aggregate = query.get('aggregate')
-
     try:
+        table = query.get('table')
+        column = query.get('column')
+        SQL = query.get('SQL')
+
         columns = ", ".join(column)
         tables = ", ".join(table)
-
-        SQL = f"SELECT {columns} FROM {tables};"
-
-        if where:
-            SQL += ""
 
         conn = mysql.connection
         cur = conn.cursor()
@@ -144,10 +177,10 @@ def get_result():
         output = cur.fetchall()
 
         res = make_response(
-            jsonify({"columns": columns, "result": output}), 200)
+            jsonify({"tables": tables, "columns": columns, "result": output}), 200)
 
-    except TypeError:
+    except (TypeError, KeyError, NameError) as e:
         res = make_response(
-            jsonify({"message": "Columns/Tables not found"}), 400)
+            jsonify({"message": "Improper Payloads"}), 400)
 
     return res

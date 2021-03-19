@@ -1,35 +1,41 @@
 # AdHoc-Query-Builder
 
-Project for Data Modelling course Spring Semester 2021
+Project for Data Modelling course Spring Semester 2021.
 
 ## Setting up the project
 
+* This Project requires Python version above 3.8, and it is specifically built on `Python 3.8.5`
 * Create virtual environment
 
 ```
 python3 -m venv env
 ```
+
 * Activate virtual env
 
 ```
 source env/bin/activate
 ```
+
 * Update pip
 
 ```
-pip install --upgrade pip
+pip3 install --upgrade pip
 ```
+
 * Installing dependencies
 
 ```
 pip3 install -r requirements.txt
 ```
+
 * Setting flask environment variables
 
 ```
 export FLASK_APP=run.py
 export FLASK_ENV=development (Do this step everytime when you start venv)
 ```
+
 * Setting mysql database configurations
 
   * Go to "config.py"
@@ -39,6 +45,7 @@ export FLASK_ENV=development (Do this step everytime when you start venv)
 ```
 flask run
 ```
+
 ## Guidelines for contribution
 
 * If you want to contribute:
