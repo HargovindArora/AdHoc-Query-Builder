@@ -28,18 +28,25 @@ def get_tables():
 def table():
 
     req = request.get_json()
-
-    try:
-        table = req['table']
-        tables = ", ".join(table)
-        SQL = f"desc {tables};"
-
-    except:
-        return "No Table Found!", 400
-
-    df = mysql.execute_sql(SQL, to_pandas=True)
+    table = req['table']
 
     query["table"] = table
+
+    res = make_response(jsonify({"message": "Table Selected"}), 200)
+
+    return res
+
+
+@app.route("/get_columns", methods=["GET"])
+def get_columns():
+
+    try:
+        tables = query["table"]
+        SQL = f"desc {tables[0]};"
+    except KeyError:
+        return jsonify({"message": "No Table found!"}), 400
+
+    df = mysql.execute_sql(SQL, to_pandas=True)
 
     cols = []
 
