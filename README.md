@@ -1,6 +1,6 @@
 # AdHoc-Query-Builder
 
-Project for Data Modelling course Spring Semester 2021.
+Building SQL queries to query Relational Database without worrying about learning or knowing SQL.
 
 ## Setting up the project
 
