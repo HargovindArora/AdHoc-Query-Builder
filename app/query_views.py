@@ -3,6 +3,7 @@ from app import mysql
 
 from flask import render_template, request, redirect, jsonify, make_response
 
+from decimal import Decimal
 
 query = {}
 
@@ -48,12 +49,12 @@ def get_columns():
 
     df = mysql.execute_sql(SQL, to_pandas=True)
 
-    cols = []
+    columns = []
 
     for x in df['Field']:
-        cols.append(x)
+        columns.append(x)
 
-    res = make_response(jsonify({"columns": cols}), 200)
+    res = make_response(jsonify({"columns": columns}), 200)
 
     return res
 
@@ -74,6 +75,7 @@ def column():
 
     cols = []
 
+
     for x in df['Field']:
         cols.append(x)
 
@@ -81,7 +83,7 @@ def column():
         query["column"] = "*"
     else:
         if len(column) == 1:
-            query["column"] = column[0]
+            query["column"] = column
         else:
             query["column"] = []
             for col in column:
@@ -98,9 +100,9 @@ def where_clause():
     req = request.get_json()
 
     try:
-        where = req["where"]
-        conditions = where["conditions"]
-        acceptance = where["acceptance"]
+        where_res = req["where"]
+        conditions = where_res["conditions"]
+        acceptance = where_res["acceptance"]
 
         where = ""
 
@@ -135,6 +137,42 @@ def where_clause():
     return res
 
 
+@app.route("/aggregate_function", methods=["POST"])
+def agg_function():
+
+    req = request.get_json()
+
+    try:
+        aggregate_res = req["aggregate"]
+        columns = aggregate_res["columns"]
+        functions = aggregate_res["functions"]
+
+        aggregate = ""
+
+        for function, column in zip(functions, columns):
+            agg = function + "(" + column + ") "
+            aggregate += agg
+
+        aggregate = aggregate.split()
+        aggregate = ", ".join(aggregate)
+
+        query["aggregate"] = aggregate
+
+        res = make_response(
+            jsonify({"message": "Aggregate functions selected"}), 200)
+
+    except (TypeError, KeyError, NameError) as e:
+        res = make_response(jsonify({"message": "Check payloads"}), 400)
+
+    return res
+
+
+# @app.route("/groupby", methods=["POST"])
+# def groupby_clause():
+
+#     req = request.get_json()
+
+
 @app.route("/generate_sql", methods=["GET"])
 def generate_sql():
 
@@ -146,16 +184,26 @@ def generate_sql():
     having = query.get('having')
 
     try:
-        columns = ", ".join(column)
+
         tables = ", ".join(table)
 
-        SQL = f"SELECT {columns} FROM {tables}"
+        SQL = "SELECT"
+
+        if aggregate:
+            substring = f" {aggregate}"
+            SQL += substring
+        else:
+            columns = ", ".join(column)
+            SQL += f" {columns}"
+
+        SQL +=  f" FROM {tables}"
 
         if where:
             SQL += " WHERE "
-            SQL += query["where"]
+            SQL += where
 
         SQL += ";"
+
         query["SQL"] = SQL
 
         res = make_response(jsonify({"SQL": SQL}), 200)
@@ -172,10 +220,13 @@ def get_result():
 
     try:
         table = query.get('table')
-        column = query.get('column')
         SQL = query.get('SQL')
 
-        columns = ", ".join(column)
+        if query.get('aggregate'):
+            columns = query.get('aggregate')
+        else:
+            columns = ", ".join(query.get('column'))
+
         tables = ", ".join(table)
 
         conn = mysql.connection
@@ -183,11 +234,32 @@ def get_result():
         cur.execute(SQL)
         output = cur.fetchall()
 
-        res = make_response(
-            jsonify({"tables": tables, "columns": columns, "result": output}), 200)
+        result = []
 
-    except (TypeError, KeyError, NameError) as e:
+        for row in output:
+            record = []
+            for val in row:
+                if isinstance(val, Decimal):
+                    record.append(str(val))
+                else:
+                    record.append(val)
+            result.append(record)
+
+        res = make_response(
+            jsonify({"tables": tables, "columns": columns, "result": result}), 200)
+
+    except (KeyError, NameError, TypeError  ) as e:
         res = make_response(
             jsonify({"message": "Couldn't execute SQL!"}), 400)
 
     return res
+
+
+@app.route("/clear", methods=["GET"])
+def clear_selections():
+
+    query.clear()
+
+    print(query)
+
+    return jsonify({"message": "Selections removed"}), 200
