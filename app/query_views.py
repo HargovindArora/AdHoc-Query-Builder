@@ -5,6 +5,7 @@ from flask import render_template, request, redirect, jsonify, make_response
 
 from decimal import Decimal
 
+
 query = {}
 
 
@@ -74,7 +75,6 @@ def column():
         return "No Table/Column Found!", 400
 
     cols = []
-
 
     for x in df['Field']:
         cols.append(x)
@@ -167,10 +167,26 @@ def agg_function():
     return res
 
 
-# @app.route("/groupby", methods=["POST"])
-# def groupby_clause():
+@app.route("/groupby", methods=["POST"])
+def groupby_clause():
 
-#     req = request.get_json()
+    req = request.get_json()
+
+    try:
+        column = req["column"]
+
+        if column in query.get("column"):
+            query["group_by"] = column
+            res = make_response(
+                jsonify({"message": "Group By column selected"}), 200)
+        else:
+            res = make_response(
+                jsonify({"message": "Column not in list of SELECT expression"}), 422)
+
+    except KeyError:
+        res = make_response(jsonify({"message": "Check Payloads"}), 400)
+
+    return res
 
 
 @app.route("/generate_sql", methods=["GET"])
@@ -191,16 +207,33 @@ def generate_sql():
 
         if aggregate:
             substring = f" {aggregate}"
-            SQL += substring
-        else:
-            columns = ", ".join(column)
-            SQL += f" {columns}"
 
-        SQL +=  f" FROM {tables}"
+        if column:
+            columns = ", ".join(column)
+
+        if group_by:
+            group = " GROUP BY " + group_by
+            if aggregate and column:
+                SQL += f" {columns},"
+                SQL += substring
+            elif aggregate:
+                SQL += substring
+            else:
+                SQL += f" {columns}"
+        else:
+            if aggregate:
+                SQL += substring
+            else:
+                SQL += f" {columns}"
+
+        SQL += f" FROM {tables}"
 
         if where:
             SQL += " WHERE "
             SQL += where
+
+        if group_by:
+            SQL += group
 
         SQL += ";"
 
@@ -222,10 +255,19 @@ def get_result():
         table = query.get('table')
         SQL = query.get('SQL')
 
-        if query.get('aggregate'):
-            columns = query.get('aggregate')
+        if query.get('group_by'):
+            if query.get('aggregate') and query.get('column'):
+                columns = ", ".join(query.get('column'))
+                columns = columns + ", " + query.get('aggregate')
+            elif query.get('aggregate'):
+                columns = query.get('aggregate')
+            else:
+                columns = ", ".join(query.get('column'))
         else:
-            columns = ", ".join(query.get('column'))
+            if query.get('aggregate'):
+                columns = query.get('aggregate')
+            else:
+                columns = ", ".join(query.get('column'))
 
         tables = ", ".join(table)
 
@@ -248,7 +290,7 @@ def get_result():
         res = make_response(
             jsonify({"tables": tables, "columns": columns, "result": result}), 200)
 
-    except (KeyError, NameError, TypeError  ) as e:
+    except (KeyError, NameError, TypeError) as e:
         res = make_response(
             jsonify({"message": "Couldn't execute SQL!"}), 400)
 
