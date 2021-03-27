@@ -215,6 +215,35 @@ def having_clause():
     return res
 
 
+@app.route("/order", methods=["POST"])
+def order_by():
+
+    req = request.get_json()
+
+    try:
+        order_res = req["order_by"]
+        columns = order_res["columns"]
+        order = order_res["order"]
+
+        order_by = " ORDER BY "
+
+        for column, o in zip(columns, order):
+            ob = column + " " + o + ", "
+            order_by += ob
+
+        order_by = order_by[:len(order_by)-2]
+
+        query["order_by"] = order_by
+
+        res = make_response(
+            jsonify({"message": "Ordering on columns selected"}), 200)
+
+    except (TypeError, KeyError, NameError) as e:
+        res = make_response(jsonify({"message": "Check payloads"}), 400)
+
+    return res
+
+
 @app.route("/generate_sql", methods=["GET"])
 def generate_sql():
 
@@ -224,7 +253,7 @@ def generate_sql():
     group_by = query.get('group_by')
     aggregate = query.get('aggregate')
     having = query.get('having')
-    order = query.get('order')
+    order = query.get('order_by')
 
     try:
 
@@ -264,6 +293,9 @@ def generate_sql():
 
         if having:
             SQL += having
+
+        if order:
+            SQL += order
 
         SQL += ";"
 
