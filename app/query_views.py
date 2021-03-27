@@ -175,7 +175,7 @@ def groupby_clause():
     try:
         column = req["column"]
 
-        if column in query.get("column"):
+        if (not query.get("column") and query.get("aggregate")) or (column in query.get("column")):
             query["group_by"] = column
             res = make_response(
                 jsonify({"message": "Group By column selected"}), 200)
@@ -183,7 +183,33 @@ def groupby_clause():
             res = make_response(
                 jsonify({"message": "Column not in list of SELECT expression"}), 422)
 
-    except KeyError:
+    except (KeyError, TypeError) as e:
+        res = make_response(jsonify({"message": "Check Payloads"}), 400)
+
+    return res
+
+
+@app.route("/having", methods=["POST"])
+def having_clause():
+
+    req = request.get_json()
+
+    try:
+
+        having_req = req["having"]
+
+        function = having_req["function"]
+        column = having_req["column"]
+        condition = having_req["condition"]
+        value = having_req["value"]
+
+        having = f" HAVING {function}({column}) {condition} {value}"
+
+        query["having"] = having
+
+        res = make_response(jsonify({"message": "Having clause created"}), 200)
+
+    except (TypeError, NameError, KeyError) as e:
         res = make_response(jsonify({"message": "Check Payloads"}), 400)
 
     return res
@@ -198,6 +224,7 @@ def generate_sql():
     group_by = query.get('group_by')
     aggregate = query.get('aggregate')
     having = query.get('having')
+    order = query.get('order')
 
     try:
 
@@ -234,6 +261,9 @@ def generate_sql():
 
         if group_by:
             SQL += group
+
+        if having:
+            SQL += having
 
         SQL += ";"
 
