@@ -1,7 +1,9 @@
 from app import app
 from app import mysql
+from app.database.models import User
 
 from flask import render_template, request, redirect, jsonify, make_response
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from decimal import Decimal
 
@@ -9,7 +11,8 @@ from decimal import Decimal
 query = {}
 
 
-@app.route("/get_tables")
+@app.route("/get_tables", methods=["GET"])
+@jwt_required()
 def get_tables():
 
     SQL = "show tables;"
@@ -27,6 +30,7 @@ def get_tables():
 
 
 @app.route("/table", methods=["POST"])
+@jwt_required()
 def table():
 
     req = request.get_json()
@@ -40,6 +44,7 @@ def table():
 
 
 @app.route("/get_columns", methods=["GET"])
+@jwt_required()
 def get_columns():
 
     try:
@@ -61,6 +66,7 @@ def get_columns():
 
 
 @app.route("/column", methods=["POST"])
+@jwt_required()
 def column():
 
     req = request.get_json()
@@ -79,15 +85,15 @@ def column():
     for x in df['Field']:
         cols.append(x)
 
-    if not column or column[0] == "all" or len(column) == len(cols):
-        query["column"] = "*"
+    # if not column or column[0] == "all" or len(column) == len(cols):
+    #     query["column"] = "*"
+    # else:
+    if len(column) == 1:
+        query["column"] = column
     else:
-        if len(column) == 1:
-            query["column"] = column
-        else:
-            query["column"] = []
-            for col in column:
-                query["column"].append(col)
+        query["column"] = []
+        for col in column:
+            query["column"].append(col)
 
     res = make_response(jsonify({"message": "Columns Selected"}), 200)
 
@@ -95,6 +101,7 @@ def column():
 
 
 @app.route("/conditions", methods=["POST"])
+@jwt_required()
 def where_clause():
 
     req = request.get_json()
@@ -138,6 +145,7 @@ def where_clause():
 
 
 @app.route("/aggregate_function", methods=["POST"])
+@jwt_required()
 def agg_function():
 
     req = request.get_json()
@@ -168,6 +176,7 @@ def agg_function():
 
 
 @app.route("/groupby", methods=["POST"])
+@jwt_required()
 def groupby_clause():
 
     req = request.get_json()
@@ -190,6 +199,7 @@ def groupby_clause():
 
 
 @app.route("/having", methods=["POST"])
+@jwt_required()
 def having_clause():
 
     req = request.get_json()
@@ -216,6 +226,7 @@ def having_clause():
 
 
 @app.route("/order", methods=["POST"])
+@jwt_required()
 def order_by():
 
     req = request.get_json()
@@ -245,6 +256,7 @@ def order_by():
 
 
 @app.route("/generate_sql", methods=["GET"])
+@jwt_required()
 def generate_sql():
 
     table = query.get('table')
@@ -303,6 +315,11 @@ def generate_sql():
 
         res = make_response(jsonify({"SQL": SQL}), 200)
 
+        user_id = get_jwt_identity()
+        user = User.objects.get(id=user_id)
+        user.update(push__sql=SQL)
+        user.save()
+
     except TypeError:
         res = make_response(
             jsonify({"message": "Couldn't find sufficient values to construct query!"}), 400)
@@ -311,6 +328,7 @@ def generate_sql():
 
 
 @app.route("/result", methods=["GET"])
+@jwt_required()
 def get_result():
 
     try:
@@ -359,7 +377,18 @@ def get_result():
     return res
 
 
+@app.route("/get_queries", methods=["GET"])
+@jwt_required()
+def queries():
+    user_id = get_jwt_identity()
+    user = User.objects.get(id=user_id)
+    queries = user.sql
+
+    return {"queries": queries}, 200
+
+
 @app.route("/clear", methods=["GET"])
+@jwt_required()
 def clear_selections():
 
     query.clear()
