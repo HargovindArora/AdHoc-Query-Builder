@@ -6,9 +6,12 @@ from flask import render_template, request, redirect, jsonify, make_response
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from decimal import Decimal
+from collections import defaultdict
 
 
 query = {}
+graph = defaultdict(list)
+table_columns = defaultdict(list)
 
 
 @app.route("/get_tables", methods=["GET"])
@@ -24,6 +27,17 @@ def get_tables():
         for x in df[col]:
             tables.append(x)
 
+    for table in tables:
+        SQL = f"desc {table};"
+        df = mysql.execute_sql(SQL, to_pandas=True)
+        for x in df['Field']:
+            table_columns[table].append(x)
+
+    for table in tables:
+        lst = table_columns[table]
+        for col in lst:
+            graph[col].append(table)
+
     res = make_response(jsonify({"tables": tables}), 200)
 
     return res
@@ -34,9 +48,9 @@ def get_tables():
 def table():
 
     req = request.get_json()
-    table = req['table']
+    tables = req['table']
 
-    query["table"] = table
+    query["table"] = tables
 
     res = make_response(jsonify({"message": "Table Selected"}), 200)
 
@@ -49,20 +63,15 @@ def get_columns():
 
     try:
         tables = query["table"]
-        SQL = f"desc {tables[0]};"
+        columns = []
+
+        for table in tables:
+            columns.append(table_columns[table])
+        res = make_response(jsonify({"columns": columns}), 200)
+
+        return res
     except KeyError:
         return jsonify({"message": "No Table found!"}), 400
-
-    df = mysql.execute_sql(SQL, to_pandas=True)
-
-    columns = []
-
-    for x in df['Field']:
-        columns.append(x)
-
-    res = make_response(jsonify({"columns": columns}), 200)
-
-    return res
 
 
 @app.route("/column", methods=["POST"])
@@ -71,19 +80,6 @@ def column():
 
     req = request.get_json()
     column = req['column']
-
-    try:
-        tables = ", ".join(query['table'])
-        SQL = f"desc {tables};"
-        df = mysql.execute_sql(SQL, to_pandas=True)
-
-    except KeyError:
-        return "No Table/Column Found!", 400
-
-    cols = []
-
-    for x in df['Field']:
-        cols.append(x)
 
     # if not column or column[0] == "all" or len(column) == len(cols):
     #     query["column"] = "*"
@@ -255,6 +251,76 @@ def order_by():
     return res
 
 
+def join():
+
+    table = query.get('table')
+    join_column = []
+    join_table = []
+    join_st = ""
+
+    flag1 = False
+    flag2 = False
+    flag3 = False
+
+    if len(table) == 2:
+        for item in graph.items():
+            if table[0] in item[1] and table[1] in item[1]:
+                join_column.append(item[0])
+                break
+
+        join_table = table
+
+        join_st += f"{join_table[0]}.{join_column[0]} = {join_table[1]}.{join_column[0]}"
+        query['join'] = join_st
+        print(join_st)
+
+    elif len(table) == 3:
+        for item in graph.items():
+            if table[0] in item[1] and table[1] in item[1] and not flag1:
+                join_column.append(item[0])
+                join_column.append("flag1")
+                flag1 = True
+            elif table[1] in item[1] and table[2] in item[1] and not flag2:
+                join_column.append(item[0])
+                join_column.append("flag2")
+                flag2 = True
+            elif table[0] in item[1] and table[2] in item[1] and not flag3:
+                join_column.append(item[0])
+                join_column.append("flag3")
+                flag3 = True
+
+            if flag1 and flag2 or flag2 and flag3 or flag1 and flag3:
+                break
+
+        if join_column[1] == "flag1":
+            join_table.append(table[0])
+            join_table.append(table[1])
+        elif join_column[1] == "flag2":
+            join_table.append(table[1])
+            join_table.append(table[2])
+        elif join_column[1] == "flag3":
+            join_table.append(table[0])
+            join_table.append(table[2])
+
+        if join_column[-1] == "flag1":
+            join_table.append(table[0])
+            join_table.append(table[1])
+        elif join_column[-1] == "flag2":
+            join_table.append(table[1])
+            join_table.append(table[2])
+        elif join_column[-1] == "flag3":
+            join_table.append(table[0])
+            join_table.append(table[2])
+
+        del join_column[-1]
+        del join_column[1]
+
+        join_st += f"{join_table[0]}.{join_column[0]} = {join_table[1]}.{join_column[0]} and {join_table[2]}.{join_column[1]} = {join_table[3]}.{join_column[1]}"
+
+        query['join'] = join_st
+
+
+
 @app.route("/generate_sql", methods=["GET"])
 @jwt_required()
 def generate_sql():
@@ -296,8 +362,18 @@ def generate_sql():
 
         SQL += f" FROM {tables}"
 
-        if where:
+        jo = False
+        join()
+
+        if query.get('join'):
+            jo = True
             SQL += " WHERE "
+            SQL += query.get('join')
+            SQL += " "
+
+        if where:
+            if not jo:
+                SQL += " WHERE "
             SQL += where
 
         if group_by:
@@ -334,6 +410,10 @@ def get_result():
     try:
         table = query.get('table')
         SQL = query.get('SQL')
+
+        SQL_NEW = SQL[:-1]
+        SQL_NEW += " LIMIT 10;"
+        SQL = SQL_NEW
 
         if query.get('group_by'):
             if query.get('aggregate') and query.get('column'):
@@ -380,6 +460,7 @@ def get_result():
 @app.route("/get_queries", methods=["GET"])
 @jwt_required()
 def queries():
+
     user_id = get_jwt_identity()
     user = User.objects.get(id=user_id)
     queries = user.sql
@@ -392,6 +473,8 @@ def queries():
 def clear_selections():
 
     query.clear()
+    graph.clear()
+    table_columns.clear()
 
     print(query)
 

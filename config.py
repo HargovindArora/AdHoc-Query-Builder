@@ -10,7 +10,7 @@ class DevelopmentConfig(object):
 
     MYSQL_USER = "root"
     MYSQL_PASSWORD = "password"
-    MYSQL_DATABASE = "companydb"
+    MYSQL_DATABASE = "market_star"
 
     # UPLOADS = "/home/username/app/app/static/images/uploads"
 
