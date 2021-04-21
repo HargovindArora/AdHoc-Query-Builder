@@ -1,6 +1,7 @@
 # AdHoc-Query-Builder
 
-Building SQL queries to query Relational Database without worrying about learning or knowing SQL.
+Building SQL queries to query Relational Database without worrying about learning or knowing SQL. This is the backend for Adhoc-Query-Builder, you can use Postman to try it out. The frontend can be found [here](https://github.com/Ebad95/adhoc-query-builder).
+For running this project please make sure that you have MySQL and MongoDB installed on your system
 
 ## Setting up the project
 
