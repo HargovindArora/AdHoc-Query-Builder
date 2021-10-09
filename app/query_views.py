@@ -8,6 +8,10 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from decimal import Decimal
 from collections import defaultdict
 
+// "query" dictionary should be user specific
+// Currently it is a global var
+// Violating REST API principles
+// Multiple users can't access it at the same time
 
 query = {}
 graph = defaultdict(list)
